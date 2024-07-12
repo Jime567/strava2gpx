@@ -31,6 +31,7 @@ class strava2gpx:
                 activities = await self.get_strava_activities(page)
                 masterlist.extend([[activity['name'], activity['id'], activity['start_date'], activity['type']] for activity in activities])
                 print("Received " + str(len(masterlist)) + " activities")
+            self.activities_list = masterlist
             return masterlist
     
     async def refresh_access_token(self):
@@ -137,35 +138,25 @@ class strava2gpx:
 
     async def add_seconds_to_timestamp(self, start_timestamp, seconds):
         from datetime import datetime, timedelta
-        start_time = datetime.fromisoformat(start_timestamp.replace("Z", "+00:00"))
+        start_time = datetime.fromisoformat(start_timestamp)
         new_time = start_time + timedelta(seconds=seconds)
-        return new_time.isoformat() + "Z"
+        return (new_time.isoformat() + "Z").replace("+00:00", "")
 
     async def gpx_writer(self, activity):
+        
         gpx_content_start = f'''<?xml version="1.0" encoding="UTF-8"?>
-<gpx xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-xsi:schemaLocation="http://www.topografix.com/GPX/1/1 
-http://www.topografix.com/GPX/1/1/gpx.xsd 
-http://www.garmin.com/xmlschemas/GpxExtensions/v3 
-http://www.garmin.com/xmlschemas/GpxExtensionsv3.xsd 
-http://www.garmin.com/xmlschemas/TrackPointExtension/v1 
-http://www.garmin.com/xmlschemas/TrackPointExtensionv1.xsd" 
-creator="StravaGPX" version="1.1" 
-xmlns="http://www.topografix.com/GPX/1/1" 
-xmlns:gpxtpx="http://www.garmin.com/xmlschemas/TrackPointExtension/v1"
-xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3">
-<metadata>
-<time>{activity[2]}</time>
-</metadata>
-<trk>
-<name>{activity[0]}</name>
-<type>{activity[3]}</type>
-<trkseg>
-'''
-
+<gpx xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensionsv3.xsd http://www.garmin.com/xmlschemas/TrackPointExtension/v1 http://www.garmin.com/xmlschemas/TrackPointExtensionv1.xsd" creator="StravaGPX" version="1.1" xmlns="http://www.topografix.com/GPX/1/1" xmlns:gpxtpx="http://www.garmin.com/xmlschemas/TrackPointExtension/v1" xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3">
+ <metadata>
+  <time>{activity[2]}</time>
+ </metadata>
+ <trk>
+  <name>{activity[0]}</name>
+  <type>{activity[3]}</type>
+  <trkseg>'''
+    
         gpx_content_end = '''
-</trkseg>
-</trk>
+  </trkseg>
+ </trk>
 </gpx>
 '''
 
@@ -173,6 +164,8 @@ xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3">
             async with aiofiles.open('build.gpx', 'w') as f:
                 await f.write(gpx_content_start)
 
+            act = await self.get_strava_activity(activity[1])
+            await self.detect_activity_streams(act)
             data_streams = await self.get_data_stream(activity[1])
 
             if data_streams['latlng']['original_size'] != data_streams['time']['original_size']:
@@ -183,16 +176,35 @@ xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3">
             for i in range(data_streams['time']['original_size']):
                 time = await self.add_seconds_to_timestamp(activity[2], data_streams['time']['data'][i])
                 trkpt = f'''
-<trkpt lat="{float(data_streams['latlng']['data'][i][0]):.7f}" lon="{float(data_streams['latlng']['data'][i][1]):.7f}">
-<ele>{float(data_streams['altitude']['data'][i]):.1f}</ele>
-<time>{time}</time>
-<extensions>
-<gpxtpx:TrackPointExtension>
-<gpxtpx:hr>{data_streams['heartrate']['data'][i]}</gpxtpx:hr>
-</gpxtpx:TrackPointExtension>
-</extensions>
-</trkpt>
+   <trkpt lat="{float(data_streams['latlng']['data'][i][0]):.7f}" lon="{float(data_streams['latlng']['data'][i][1]):.7f}">
+    <ele>{float(data_streams['altitude']['data'][i]):.1f}</ele>
+    <time>{time}</time>
+    <extensions>
+     <gpxtpx:TrackPointExtension>
 '''
+                trkpts.append(trkpt)
+
+                if self.streams['temp'] == 1:
+                    trkpt = f'''      <gpxtpx:atemp>{data_streams['temp']['data'][i]}</gpxtpx:atemp>
+'''
+                    trkpts.append(trkpt)
+                if self.streams['watts'] == 1:
+                    trkpt = f'''      <gpxtpx:watts>{data_streams['watts']['data'][i]}</gpxtpx:watts>
+'''
+                    trkpts.append(trkpt)
+                if self.streams['heartrate'] == 1:
+                    trkpt = f'''      <gpxtpx:hr>{data_streams['heartrate']['data'][i]}</gpxtpx:hr>
+''' 
+                    trkpts.append(trkpt)
+
+                if self.streams['cadence'] == 1:
+                    trkpt = f'''      <gpxtpx:cad>{data_streams['cadence']['data'][i]}</gpxtpx:cad>
+'''
+                    trkpts.append(trkpt)
+
+                trkpt =f'''     </gpxtpx:TrackPointExtension>
+    </extensions>
+   </trkpt>'''
                 trkpts.append(trkpt)
 
             async with aiofiles.open('build.gpx', 'a') as f:
@@ -209,12 +221,14 @@ async def main():
     client_secret = os.getenv('STRAVA_CLIENT_SECRET')
     refresh_token = os.getenv('STRAVA_REFRESH_TOKEN')
 
+    
     s2g = strava2gpx(client_id, client_secret, refresh_token)
     await s2g.connect()
-    act = await s2g.get_strava_activity(591201341)
-    await s2g.detect_activity_streams(act)
-    data = await s2g.get_data_stream(591201341)
-    print(data)
+    await s2g.get_activities_list()
+    await s2g.gpx_writer(s2g.activities_list[900])
+
+
+  
     # s2g.activities_list = await s2g.get_activities_list()
     # print(s2g.activities_list[0])
 
