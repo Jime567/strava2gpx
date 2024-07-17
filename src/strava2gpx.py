@@ -220,18 +220,3 @@ class strava2gpx:
             print('GPX file saved successfully.')
         except Exception as err:
             print('Error writing GPX file:', str(err))
-
-async def main():
-    print("Starting Strava2GPX")
-    client_id = os.getenv('STRAVA_CLIENT_ID')
-    client_secret = os.getenv('STRAVA_CLIENT_SECRET')
-    refresh_token = os.getenv('STRAVA_REFRESH_TOKEN')
-
-    
-    s2g = strava2gpx(client_id, client_secret, refresh_token)
-    await s2g.connect()
-    await s2g.write_to_gpx(11893637629)
-
-
-if __name__ == '__main__':
-    asyncio.run(main())

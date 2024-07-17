@@ -1,1 +1,0 @@
-from .strava2gpx import strava2gpx

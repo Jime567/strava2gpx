@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools", "aiohttp", "aiofiles"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name="strava2gpx"
+version="0.25"
+authors = [
+  { name="James Phelps", email="jamesphelpsmail@gmail.com" },
+]
+description="A package to convert Strava activities to GPX format"
+readme="README.md"
+requires-python = ">=3.8"
+classifiers=[
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+keywords=["strava", "gpx", "convert"]
+
+[project.urls]
+Homepage = "https://github.com/jime567/strava2gpx"
