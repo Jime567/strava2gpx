@@ -68,7 +68,7 @@ async def main():
     # connect to Strava API
     await s2g.connect()
 
-    # write activity to output.gpx by activity id
+    # get a list of all user's Strava activities
     activities_list = await s2g.get_activities_list()
 
     '''
