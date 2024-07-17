@@ -69,14 +69,14 @@ async def main():
     await s2g.connect()
 
     # write activity to output.gpx by activity id
-    await s2g.get_activities_list()
+    activities_list = await s2g.get_activities_list()
 
     '''
     Each list element is the following format
     [name, id, start_date, type]
     '''
 
-    print(s2g.activities_list[0:5])
+    print(activities_list[0:5])
 
 if __name__ == '__main__':
     asyncio.run(main())
