@@ -18,9 +18,13 @@ class strava2gpx:
                         "watts": 0, 
                         "temp": 0}
 
+    # Connects to the Strava API and gets the access token
     async def connect (self):
         self.access_token = await self.refresh_access_token()
 
+    # Gets a list of activities from Strava and stores them in self.activities_list
+    # self.activities_list is a list of lists, where each inner list contains the activity name, activity ID, start date, and activity type
+    # [activity_name, activity_id, start_date, activity_type] ex: ['Morning Run', 1234567890, '2021-01-01T00:00:00Z', 'Run']
     async def get_activities_list(self):
             activities = await self.get_strava_activities(1)
             masterlist = [[activity['name'], activity['id'], activity['start_date'], activity['type']] for activity in activities]
@@ -91,18 +95,18 @@ class strava2gpx:
                     'Authorization': f'Bearer {self.access_token}'
                 }) as response:
                     if response.status != 200:
-                        raise Exception('Failed to get data stream')
+                        raise Exception('Failed to get data stream for activity' + str(activity_id))
 
                     data = await response.json()
                     return data
         except Exception as e:
             print('Error getting data streams:', str(e))
+            print('Error getting data streams:')
             raise
 
     async def get_strava_activity(self, activity_id):
         api_url = 'https://www.strava.com/api/v3/activities/'
         url = f'{api_url}{activity_id}?include_all_efforts=false'
-        print(url)
 
         try:
             async with aiohttp.ClientSession() as session:
@@ -142,16 +146,18 @@ class strava2gpx:
         new_time = start_time + timedelta(seconds=seconds)
         return (new_time.isoformat() + "Z").replace("+00:00", "")
 
-    async def gpx_writer(self, activity):
+    # Writes the activity to a GPX file called build.gpx
+    async def write_to_gpx(self, activity_id, output="build"):
+        activity = await self.get_strava_activity(activity_id)
         
         gpx_content_start = f'''<?xml version="1.0" encoding="UTF-8"?>
 <gpx xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensionsv3.xsd http://www.garmin.com/xmlschemas/TrackPointExtension/v1 http://www.garmin.com/xmlschemas/TrackPointExtensionv1.xsd" creator="StravaGPX" version="1.1" xmlns="http://www.topografix.com/GPX/1/1" xmlns:gpxtpx="http://www.garmin.com/xmlschemas/TrackPointExtension/v1" xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3">
  <metadata>
-  <time>{activity[2]}</time>
+  <time>{activity['start_date']}</time>
  </metadata>
  <trk>
-  <name>{activity[0]}</name>
-  <type>{activity[3]}</type>
+  <name>{activity['name']}</name>
+  <type>{activity['type']}</type>
   <trkseg>'''
     
         gpx_content_end = '''
@@ -161,12 +167,12 @@ class strava2gpx:
 '''
 
         try:
-            async with aiofiles.open('build.gpx', 'w') as f:
+            async with aiofiles.open(f"{output}.gpx", 'w') as f:
                 await f.write(gpx_content_start)
 
-            act = await self.get_strava_activity(activity[1])
-            await self.detect_activity_streams(act)
-            data_streams = await self.get_data_stream(activity[1])
+            
+            await self.detect_activity_streams(activity)
+            data_streams = await self.get_data_stream(activity_id)
 
             if data_streams['latlng']['original_size'] != data_streams['time']['original_size']:
                 print("Error: latlng does not equal Time")
@@ -174,7 +180,7 @@ class strava2gpx:
 
             trkpts = []
             for i in range(data_streams['time']['original_size']):
-                time = await self.add_seconds_to_timestamp(activity[2], data_streams['time']['data'][i])
+                time = await self.add_seconds_to_timestamp(activity['start_date'], data_streams['time']['data'][i])
                 trkpt = f'''
    <trkpt lat="{float(data_streams['latlng']['data'][i][0]):.7f}" lon="{float(data_streams['latlng']['data'][i][1]):.7f}">
     <ele>{float(data_streams['altitude']['data'][i]):.1f}</ele>
@@ -207,7 +213,7 @@ class strava2gpx:
    </trkpt>'''
                 trkpts.append(trkpt)
 
-            async with aiofiles.open('build.gpx', 'a') as f:
+            async with aiofiles.open(f"{output}.gpx", 'a') as f:
                 await f.write(''.join(trkpts))
                 await f.write(gpx_content_end)
 
@@ -224,21 +230,8 @@ async def main():
     
     s2g = strava2gpx(client_id, client_secret, refresh_token)
     await s2g.connect()
-    await s2g.get_activities_list()
-    await s2g.gpx_writer(s2g.activities_list[900])
+    await s2g.write_to_gpx(11893637629)
 
-
-  
-    # s2g.activities_list = await s2g.get_activities_list()
-    # print(s2g.activities_list[0])
-
-    # print("Refresh Token:", s2g.refresh_token)
-    # print(len(s2g.activities_list), "Activities Found")
-
-    # Example usage:
-    # await s2g.gpx_writer(activity)
-
-    # You can call other methods of s2g here as needed
 
 if __name__ == '__main__':
     asyncio.run(main())
