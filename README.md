@@ -1,4 +1,7 @@
 # Strava2GPX
+![strava2gpx](https://github.com/user-attachments/assets/12a5735d-cb4d-4a2f-900f-47e6fb3b191d)
+
+[Small Tutorial](https://jamesephelps.com/2024/07/18/how-to-get-gpx-files-from-the-strava-api-strava2gpx-python/)
 
 A Python package to convert Strava activities using the Strava API to GPX format. Supports encoding heart rate, cadence, power (watts), and temperature data into GPX file using Garmin GpxExtensions format. Will not convert activity types without GPS data (e.g. Yoga, Weightlifting, etc.) Open a new issue to request additional features and report current problems or open a pull request if you want to contribute your own work.
 
