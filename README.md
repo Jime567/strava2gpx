@@ -14,7 +14,7 @@ pip install strava2gpx
 pip install --upgrade strava2gpx
 ```
 
-## Usage
+## Usage Examples
 
 ### Write Activity by ID to GPX File
 ```python
