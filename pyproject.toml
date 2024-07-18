@@ -1,10 +1,10 @@
 [build-system]
-requires = ["setuptools", "aiohttp", "aiofiles"]
+requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name="strava2gpx"
-version="0.25"
+version="1.0.0"
 authors = [
   { name="James Phelps", email="jamesphelpsmail@gmail.com" },
 ]
@@ -17,6 +17,11 @@ classifiers=[
     "Operating System :: OS Independent",
 ]
 keywords=["strava", "gpx", "convert"]
+
+dependencies = [
+    "aiohttp",
+    "aiofiles"
+]
 
 [project.urls]
 Homepage = "https://github.com/jime567/strava2gpx"
