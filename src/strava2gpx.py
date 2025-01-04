@@ -123,7 +123,7 @@ class strava2gpx:
             raise
 
     async def detect_activity_streams(self, activity):
-        if activity['device_watts'] == True:
+        if activity.get('device_watts', False):
             self.streams['watts'] = 1
         else:
             self.streams['watts'] = 0
